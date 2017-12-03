@@ -1,0 +1,25 @@
+{
+  "name": "word_prediction",
+  "version": "1.0.0",
+  "description": "Word Prediction using pre-train model from LDA / TNG",
+  "main": "App.js",
+  "scripts": {
+    "test": "node App.js unittest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/twilightdema/word_prediction.git"
+  },
+  "keywords": [
+    "LDA",
+    "TNG",
+    "Word",
+    "Prediction"
+  ],
+  "author": "Chulayuth A.",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/twilightdema/word_prediction/issues"
+  },
+  "homepage": "https://github.com/twilightdema/word_prediction#readme"
+}
