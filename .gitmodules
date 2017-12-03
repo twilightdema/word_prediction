@@ -1,7 +1,6 @@
 [submodule "lda"]
 	path = lda
-	url = ../lda.git
-
+	url = ../lda
 [submodule "tng_js"]
 	path = tng_js
-	url = ../tng_js.git
+	url = ../tng_js
