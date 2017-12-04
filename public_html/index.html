@@ -57,6 +57,9 @@
       $(document).ready(function(){
 
           var existing_sentence = '';
+          var existing_tokens = [];
+          var existing_topics_lda = [];
+          var existing_topics_tng = [];
 
           var vocab = [];
           $.ajax({
@@ -92,9 +95,16 @@
           $("#sentence").on('change keyup paste mouseup', function() {
             if ($(this).val() != lastSentence) {
               lastSentence = $(this).val();
-              if(lastSentence.length > 0 && lastSentence.endsWith(' ')) {
+              if(lastSentence.trim().length > 0 && lastSentence.endsWith(' ')) {
                 existing_sentence = (existing_sentence.length==0)?lastSentence:(existing_sentence + ' ' + lastSentence);
                 existing_sentence = existing_sentence.substring(0, existing_sentence.length-1);
+                var word = lastSentence.substring(0, lastSentence.length-1);
+                for(var i=0;i<vocab.length;i++) {
+                  if(vocab[i] === word) {
+                    existing_tokens.push(word);
+                    break;
+                  }
+                }
                 $("#existing_sentence").html(existing_sentence);
                 $("#sentence").val('');
                 for(var i=0;i<5;i++) {
@@ -119,7 +129,33 @@
                       $("#tng_word_"+i).html(vocab[tng.sort_p[i].word]);
                       $("#tng_prob_"+i).html((tng.sort_p[i].prob * 100).toFixed(2)+'%');
                     }
-                  }
+                    existing_topics_lda = [];
+                    existing_topics_tng = [];
+                    var strTable_lda = '<table border="1"><tr>';
+                    var strTable_tng = '<table border="1"><tr>';
+                    for(var i=0;i<lda.topics.length;i++) {
+                      existing_topics_lda.push(String(lda.topics[i]));
+                      strTable_lda += '<td>'+existing_topics_lda[i]+'</td>';                     
+                    }
+                    for(var i=0;i<tng.topics.length;i++) {
+                      if(tng.bigrams[i] == 0)
+                        existing_topics_tng.push(String(tng.topics[i]));                      
+                      else
+                        existing_topics_tng.push('-');                      
+                      strTable_tng += '<td>'+existing_topics_tng[i]+'</td>';                     
+                    }
+                    strTable_lda += '</tr><tr>';
+                    strTable_tng += '</tr><tr>';
+                    for(var i=0;i<existing_tokens.length;i++) {
+                      strTable_lda += '<td>'+existing_tokens[i]+'</td>';                     
+                      strTable_tng += '<td>'+existing_tokens[i]+'</td>';                     
+                    }                    
+                    strTable_lda += '</tr></table>';
+                    strTable_tng += '</tr></table>';
+
+                    $("#lda_topics").html(strTable_lda);
+                    $("#tng_topics").html(strTable_tng);
+                  }                  
                 });                
               }
             }
@@ -206,6 +242,15 @@
         </tbody>
       </table>
       </div>
+    </div>
+
+    <div>
+      <h3>LDA Topic Model</h3>
+      <div id="lda_topics"></div>
+    </div>
+    <div>
+      <h3>TNG Topic Model</h3>
+      <div id="tng_topics"></div>
     </div>
     
   </body>
