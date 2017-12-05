@@ -12,6 +12,8 @@ var lda = require('./lda/lib/lda');
 var tng = require('./tng_js/tng');
 var prediction_lda = require('./lda/lib/prediction_lda');
 var prediction_tng = require('./tng_js/prediction_tng');
+var perplexity_lda = require('./lda/lib/perplexity_lda');
+var perplexity_tng = require('./tng_js/perplexity_tng');
 
 // Train data and create the models
 var sentences = [
@@ -68,6 +70,58 @@ app.all('/predict', function (req, res) {
   var sampling_tng = prediction_tng(tng_model.topicModel, [sentence], ['th']);
   
   res.send({sampling_lda:sampling_lda, sampling_tng:sampling_tng});
+});
+
+app.all('/perplexity', function (req, res) {
+	console.log('POST/GET perplexity');
+	var sentence = null;
+	if(req.method== 'PUT' || req.method=='POST')
+    sentence = req.body.sentence;
+	else
+    sentence = req.query.param;
+
+  console.log('Perplexity of : '+sentence);
+
+  var perplexity_lda_ = perplexity_lda(lda_model.topicModel, [sentence], ['th']);
+  var perplexity_tng_ = perplexity_tng(tng_model.topicModel, [sentence], ['th']);
+  
+  res.send({perplexity_lda:perplexity_lda_, perplexity_tng:perplexity_tng_});
+});
+
+app.all('/perplexity_doc', function (req, res) {
+	console.log('POST/GET perplexity');
+	var sentence = null;
+	if(req.method== 'PUT' || req.method=='POST')
+    sentence = req.body.documents;
+	else
+    sentence = req.query.param;
+
+  console.log('Perplexity of : '+sentence);
+
+  var perplexity_lda_ = perplexity_lda(lda_model.topicModel, sentence, ['th']);
+  var perplexity_tng_ = perplexity_tng(tng_model.topicModel, sentence, ['th']);
+  
+  res.send({perplexity_lda:perplexity_lda_, perplexity_tng:perplexity_tng_});
+});
+
+app.all('/topic_model', function (req, res) {
+	console.log('POST/GET topic_model');
+  var sentence = null;
+  var topicNum = 3;
+	if(req.method== 'PUT' || req.method=='POST') {
+    sentences = req.body.documents;
+    topicNum = req.body.topicNum;
+  } else {
+    sentences = req.query.param;
+    topicNum = parseInt(req.query.topicNum);
+  }
+
+  console.log('Training by : '+sentences);
+
+  lda_model = lda('direct', sentences, topicNum, 3, ['th']);
+  tng_model = tng('direct', sentences, topicNum, 3, ['th']);
+  
+  res.send({lda_model:lda_model.topicModel, tng_model:tng_model.topicModel});
 });
 
 var listen_port = process.env.PORT || 28080;

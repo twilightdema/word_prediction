@@ -1,0 +1,218 @@
+<html>
+    <head>
+      <title>Topic Modeling</title>
+      <script type="text/javascript" src="js/jquery-3.2.1.min.js"></script>    
+      <script type="text/javascript" src="js/typeahead.bundle.js"></script>    
+      <style type="text/css">
+        .bs-example {
+          font-family: sans-serif;
+          position: relative;
+          margin: 100px;
+        }
+        .typeahead, .tt-query, .tt-hint {
+          border: 2px solid #CCCCCC;
+          border-radius: 8px;
+          font-size: 22px; /* Set input font size */
+          height: 30px;
+          line-height: 30px;
+          outline: medium none;
+          padding: 8px 12px;
+          width: 396px;
+        }
+        .typeahead {
+          background-color: #FFFFFF;
+        }
+        .typeahead:focus {
+          border: 2px solid #0097CF;
+        }
+        .tt-query {
+          box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset;
+        }
+        .tt-hint {
+          color: #999999;
+        }
+        .tt-menu {
+          background-color: #FFFFFF;
+          border: 1px solid rgba(0, 0, 0, 0.2);
+          border-radius: 8px;
+          box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+          margin-top: 12px;
+          padding: 8px 0;
+          width: 422px;
+        }
+        .tt-suggestion {
+          font-size: 22px;  /* Set suggestion dropdown font size */
+          padding: 3px 20px;
+        }
+        .tt-suggestion:hover {
+          cursor: pointer;
+          background-color: #0097CF;
+          color: #FFFFFF;
+        }
+        .tt-suggestion p {
+          margin: 0;
+        }
+      </style>    
+      <script type="text/javascript">
+        $(document).ready(function(){
+
+            /*
+            $.ajax({
+              type: "POST",
+              url: '/vocab',
+              success: function(data) {
+                console.log(data);
+                vocab = data.vocab_tng;                
+              }
+            });                
+            */
+
+            var vocab = null;
+  
+            $("#generateButton").on('click', function() {
+              var trainingData = $("#trainingData").val().trim();
+              var topicNum = $("#topicNum").val().trim();
+              if(trainingData.length == 0) {
+                alert('Please input at least 1 Word');
+                return;
+              }
+              try {
+                topicNum = parseInt(topicNum);
+              } catch(e) {
+                alert('Invalid Topic Count.');
+                return;
+              }
+              if(!topicNum || topicNum <= 0) {
+                alert('Invalid Topic Count.');
+                return;
+              }
+
+              var documents = trainingData.split('\n');
+              console.log(JSON.stringify(documents));
+
+              var createLDATable = function(probs) {
+                var str = '<table border="1"><thead><th>Word</th><th>Probabilty</th></thead><tbody>';                
+                for(var i=0;i<probs.length;i++) {
+                  var word = vocab[i];
+                  var prob = (probs[i]*100).toFixed(3)+'%';
+                  str += '<tr><td>'+word+'</td><td>'+prob+'</td></tr>';                  
+                }
+                str += '</tbody></table>';
+                return str;
+              };
+
+              var createTNGTable = function(phi, psi, sigma) {
+                var str = '<table border="1"><thead><th>Word</th><th>Probabilty</th><th>Bigram Probability</th><th>Next Word Probability</th></thead><tbody>';
+                for(var i=0;i<phi.length;i++) {
+                  var word = vocab[i];
+                  var prob = (phi[i]*100).toFixed(3)+'%';
+                  var bigram = (psi[i][1]*100).toFixed(3)+'%';
+                  var nextWordTable = '<table border="1"><tbody>';
+                  for(var j=0;j<sigma[i].length;j++) {
+                    var nextWord = vocab[j];
+                    var nextProb = (sigma[i][j]*100).toFixed(3)+'%';
+                    nextWordTable += '<tr><td>'+nextWord+'</td><td>'+nextProb+'</td></tr>';
+                  }
+                  nextWordTable += '</tbody></table>';
+                  str += '<tr><td valign="top">'+word+'</td><td valign="top">'+prob+'</td><td valign="top">'+bigram+'</td><td>'+nextWordTable+'</td></tr>';                  
+                }
+                str += '</tbody></table>';
+                return str;
+              };
+              
+              $.ajax({
+                type: "POST",
+                url: '/topic_model',
+                data: JSON.stringify({documents: documents, topicNum: topicNum}),
+                dataType: 'json',
+                contentType: 'application/json',
+                success: function(data) {
+                  console.log(data);
+                  vocab = data.lda_model.hypers.vocab;
+                  var posteriors_lda = data.lda_model.posteriors;
+                  var posteriors_tng = data.tng_model.posteriors;
+                  var ldaTable = '';
+
+                  for(var i=0;i<topicNum;i++) {
+                    var tableHtml = '<div style="display:inline-block; margin-left:10px;" ><h3>Topic: '+i+'</h3>' 
+                      + createLDATable(posteriors_lda.phi[i])+'</div>';
+                    ldaTable += tableHtml;
+                  }
+                  $("#lda_model").html(ldaTable);                  
+
+                  var tngTable = '';
+                  for(var i=0;i<topicNum;i++) {
+                    var tableHtml = '<div style="display:inline-block; margin-left:10px;" ><h3>Topic: '+i+'</h3>' 
+                      + createTNGTable(posteriors_tng.phi[i],posteriors_tng.psi[i],posteriors_tng.sigma[i])+'</div>';
+                      tngTable += tableHtml;
+                  }
+                  $("#tng_model").html(tngTable);        
+                  
+                  $.ajax({
+                    type: "POST",
+                    url: '/perplexity_doc',
+                    data: JSON.stringify({documents: documents}),
+                    dataType: 'json',
+                    contentType: 'application/json',
+                    success: function(data) {
+                      console.log(data);
+                      var perplexity_lda = data.perplexity_lda;                      
+                      $("#perplexity_lda").html(perplexity_lda);
+                      var perplexity_tng = data.perplexity_tng;                      
+                      $("#perplexity_tng").html(perplexity_tng);
+                    }                                    
+                  });
+                  
+                }                                    
+              });
+              
+            });
+  
+        });  
+      </script>
+    </head>
+    <body>
+      <h2>Topic Modeling</h2>        
+      <div>
+        Traing Data:
+      </div>      
+      <div>
+        <textarea id="trainingData" style="width:100%;height:200px;" >
+คอมพิวเตอร์ เทคโนโลยี่ โลก แสดงผล
+โลก ต้นไม้ ธรรมชาติ ลำธาร เทคโนโลยี่ ทำลาย
+เทคโนโลยี่ โลก ธรรมมะ หลุดพ้น ดับทุกข์
+คอมพิวเตอร์ เทคโนโลยี่ โลก แสดงผล
+โลก ต้นไม้ ธรรมชาติ ลำธาร เทคโนโลยี่ ทำลาย
+เทคโนโลยี่ โลก ธรรมมะ หลุดพ้น ดับทุกข์
+คอมพิวเตอร์ เทคโนโลยี่ โลก แสดงผล
+โลก ต้นไม้ ธรรมชาติ ลำธาร เทคโนโลยี่ ทำลาย
+เทคโนโลยี่ โลก ธรรมมะ หลุดพ้น ดับทุกข์
+คอมพิวเตอร์ เทคโนโลยี่ โลก แสดงผล
+โลก ต้นไม้ ธรรมชาติ ลำธาร เทคโนโลยี่ ทำลาย
+เทคโนโลยี่ โลก ธรรมมะ หลุดพ้น ดับทุกข์
+คอมพิวเตอร์ เทคโนโลยี่ โลก แสดงผล
+โลก ต้นไม้ ธรรมชาติ ลำธาร เทคโนโลยี่ ทำลาย
+เทคโนโลยี่ โลก ธรรมมะ หลุดพ้น ดับทุกข์        
+        </textarea>
+      </div>
+      <div style="margin-top:10px;" >
+        # of Topics: <input id="topicNum" type="text" value="3" >
+      </div> 
+      <div style="margin-top:10px;" >
+        <input type="button" id="generateButton" value="Train" >
+      </div>
+  
+      <div>
+        <h2>LDA Model</h2>
+        <h3>Perplexity: <span id="perplexity_lda" ></span></h3>
+        <div id="lda_model" ><h3 style="color:red" >Not modelled yet.</h3></div>
+      </div>
+
+      <div>
+        <h2>TNG Model</h2>
+        <h3>Perplexity: <span id="perplexity_tng" ></span></h3>
+        <div id="tng_model" ><h3 style="color:red" >Not modelled yet.</h3></div>
+      </div>
+      
+    </body>
+  </html>

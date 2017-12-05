@@ -1,6 +1,6 @@
 <html>
   <head>
-    <title>Word Prediction</title>
+    <title>LDA and TNG Topic Modeling</title>
     <script type="text/javascript" src="js/jquery-3.2.1.min.js"></script>    
     <script type="text/javascript" src="js/typeahead.bundle.js"></script>    
     <style type="text/css">
@@ -56,202 +56,18 @@
     <script type="text/javascript">
       $(document).ready(function(){
 
-          var existing_sentence = '';
-          var existing_tokens = [];
-          var existing_topics_lda = [];
-          var existing_topics_tng = [];
-
-          var vocab = [];
-          $.ajax({
-            type: "POST",
-            url: '/vocab',
-            success: function(data) {
-              console.log(data);
-              vocab = data.vocab_tng;
-
-              // Constructing the suggestion engine
-              var dict = new Bloodhound({
-                  datumTokenizer: Bloodhound.tokenizers.whitespace,
-                  queryTokenizer: Bloodhound.tokenizers.whitespace,
-                  local: vocab
-              });
-              
-              // Initializing the typeahead
-              $('.typeahead').typeahead({
-                  hint: true,
-                  highlight: true, /* Enable substring highlighting */
-                  minLength: 1 /* Specify minimum characters required for showing suggestions */
-              },
-              {
-                name: 'dict',
-                source: dict
-              });
-              
-            }
-          });                
-          
-
-          var lastSentence = '';
-          $("#sentence").on('change keyup paste mouseup', function() {
-            if ($(this).val() != lastSentence) {
-              lastSentence = $(this).val();
-              if(lastSentence.trim().length > 0 && lastSentence.endsWith(' ')) {
-                existing_sentence = (existing_sentence.length==0)?lastSentence:(existing_sentence + ' ' + lastSentence);
-                existing_sentence = existing_sentence.substring(0, existing_sentence.length-1);
-                var word = lastSentence.substring(0, lastSentence.length-1);
-                for(var i=0;i<vocab.length;i++) {
-                  if(vocab[i] === word) {
-                    existing_tokens.push(word);
-                    break;
-                  }
-                }
-                $("#existing_sentence").html(existing_sentence);
-                $("#sentence").val('');
-                for(var i=0;i<5;i++) {
-                  $("#lda_word_"+i).html('');
-                  $("#lda_prob_"+i).html('');
-                  $("#tng_word_"+i).html('');
-                  $("#tng_prob_"+i).html('');
-                }                
-                $.ajax({
-                  type: "POST",
-                  url: '/predict',
-                  data: JSON.stringify({sentence: existing_sentence}),
-                  dataType: 'json',
-                  contentType: 'application/json',
-                  success: function(data) {
-                    console.log(data);
-                    var lda = data.sampling_lda;
-                    var tng = data.sampling_tng;
-                    for(var i=0;i<5;i++) {
-                      $("#lda_word_"+i).html(vocab[lda.sort_p[i].word]);
-                      $("#lda_prob_"+i).html((lda.sort_p[i].prob * 100).toFixed(2)+'%');
-                      $("#tng_word_"+i).html(vocab[tng.sort_p[i].word]);
-                      $("#tng_prob_"+i).html((tng.sort_p[i].prob * 100).toFixed(2)+'%');
-                    }
-                    existing_topics_lda = [];
-                    existing_topics_tng = [];
-                    var strTable_lda = '<table border="1"><tr>';
-                    var strTable_tng = '<table border="1"><tr>';
-                    for(var i=0;i<lda.topics.length;i++) {
-                      existing_topics_lda.push(String(lda.topics[i]));
-                      strTable_lda += '<td>'+existing_topics_lda[i]+'</td>';                     
-                    }
-                    for(var i=0;i<tng.topics.length;i++) {
-                      if(tng.bigrams[i] == 0)
-                        existing_topics_tng.push(String(tng.topics[i]));                      
-                      else
-                        existing_topics_tng.push('-');                      
-                      strTable_tng += '<td>'+existing_topics_tng[i]+'</td>';                     
-                    }
-                    strTable_lda += '</tr><tr>';
-                    strTable_tng += '</tr><tr>';
-                    for(var i=0;i<existing_tokens.length;i++) {
-                      strTable_lda += '<td>'+existing_tokens[i]+'</td>';                     
-                      strTable_tng += '<td>'+existing_tokens[i]+'</td>';                     
-                    }                    
-                    strTable_lda += '</tr></table>';
-                    strTable_tng += '</tr></table>';
-
-                    $("#lda_topics").html(strTable_lda);
-                    $("#tng_topics").html(strTable_tng);
-                  }                  
-                });                
-              }
-            }
-          });
-
       });  
     </script>
   </head>
   <body>
     <div>
-      <span id="existing_sentence" class="tt-query" ></span>
+      <a href="topic_model.html" target="theFrame" style="margin-left:30px;" >Topic Model</a>
+      <a href="perplexity.html" target="theFrame" style="margin-left:30px;" >Perplexity</a>
+      <a href="word_prediction.html" target="theFrame" style="margin-left:30px;" >Word Prediction</a>
+      <a href="doc_generate.html" target="theFrame" style="margin-left:30px;" >Document Generation</a>
     </div>
     <div>
-      <input type="text" id="sentence" class="typeahead tt-query" autocomplete="off" spellcheck="false" >
-    </div>
-    <div>
-      <div style="display: inline-block" >
-      <h3>LDA Prediction</h3>
-      <table border="1">
-        <thead>
-          <th>#</th><th>Word</th><th>Probability</th>          
-        </thead>
-        <tbody>
-          <tr>
-            <td>1</td>
-            <td><span id='lda_word_0'></span></td>
-            <td><span id='lda_prob_0'></span></td>
-          </tr>
-          <tr>
-            <td>2</td>
-            <td><span id='lda_word_1'></span></td>
-            <td><span id='lda_prob_1'></span></td>
-          </tr>
-          <tr>
-            <td>3</td>
-            <td><span id='lda_word_2'></span></td>
-            <td><span id='lda_prob_2'></span></td>
-          </tr>
-          <tr>
-            <td>4</td>
-            <td><span id='lda_word_3'></span></td>
-            <td><span id='lda_prob_3'></span></td>
-          </tr>
-          <tr>
-            <td>5</td>
-            <td><span id='lda_word_4'></span></td>
-            <td><span id='lda_prob_4'></span></td>
-          </tr>
-        </tbody>
-      </table>
-      </div>    
-      <div style="display: inline-block; margin-left: 30px;" >
-      <h3>TNG Prediction</h3>
-      <table border="1">
-        <thead>
-          <th>#</th><th>Word</th><th>Probability</th>          
-        </thead>
-        <tbody>
-          <tr>
-            <td>1</td>
-            <td><span id='tng_word_0'></span></td>
-            <td><span id='tng_prob_0'></span></td>
-          </tr>
-          <tr>
-            <td>2</td>
-            <td><span id='tng_word_1'></span></td>
-            <td><span id='tng_prob_1'></span></td>
-          </tr>
-          <tr>
-            <td>3</td>
-            <td><span id='tng_word_2'></span></td>
-            <td><span id='tng_prob_2'></span></td>
-          </tr>
-          <tr>
-            <td>4</td>
-            <td><span id='tng_word_3'></span></td>
-            <td><span id='tng_prob_3'></span></td>
-          </tr>
-          <tr>
-            <td>5</td>
-            <td><span id='tng_word_4'></span></td>
-            <td><span id='tng_prob_4'></span></td>
-          </tr>
-        </tbody>
-      </table>
-      </div>
-    </div>
-
-    <div>
-      <h3>LDA Topic Model</h3>
-      <div id="lda_topics"></div>
-    </div>
-    <div>
-      <h3>TNG Topic Model</h3>
-      <div id="tng_topics"></div>
-    </div>
-    
+      <iframe name="theFrame" style="margin-top: 10px; width:100%; height:100%" src="topic_model.html">
+    </div>    
   </body>
 </html>

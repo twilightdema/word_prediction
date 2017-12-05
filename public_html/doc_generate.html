@@ -1,0 +1,248 @@
+<html>
+    <head>
+      <title>Document Generation</title>
+      <script type="text/javascript" src="js/jquery-3.2.1.min.js"></script>    
+      <script type="text/javascript" src="js/typeahead.bundle.js"></script>    
+      <style type="text/css">
+        .bs-example {
+          font-family: sans-serif;
+          position: relative;
+          margin: 100px;
+        }
+        .typeahead, .tt-query, .tt-hint {
+          border: 2px solid #CCCCCC;
+          border-radius: 8px;
+          font-size: 22px; /* Set input font size */
+          height: 30px;
+          line-height: 30px;
+          outline: medium none;
+          padding: 8px 12px;
+          width: 396px;
+        }
+        .typeahead {
+          background-color: #FFFFFF;
+        }
+        .typeahead:focus {
+          border: 2px solid #0097CF;
+        }
+        .tt-query {
+          box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset;
+        }
+        .tt-hint {
+          color: #999999;
+        }
+        .tt-menu {
+          background-color: #FFFFFF;
+          border: 1px solid rgba(0, 0, 0, 0.2);
+          border-radius: 8px;
+          box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+          margin-top: 12px;
+          padding: 8px 0;
+          width: 422px;
+        }
+        .tt-suggestion {
+          font-size: 22px;  /* Set suggestion dropdown font size */
+          padding: 3px 20px;
+        }
+        .tt-suggestion:hover {
+          cursor: pointer;
+          background-color: #0097CF;
+          color: #FFFFFF;
+        }
+        .tt-suggestion p {
+          margin: 0;
+        }
+      </style>    
+      <script type="text/javascript">
+        $(document).ready(function(){
+  
+            var existing_sentence_lda = '';
+            var existing_tokens_lda = [];
+            var existing_topics_lda = [];
+            var existing_sentence_tng = '';
+            var existing_tokens_tng = [];
+            var existing_topics_tng = [];
+  
+            var vocab = [];
+            $.ajax({
+              type: "POST",
+              url: '/vocab',
+              success: function(data) {
+                console.log(data);
+                vocab = data.vocab_tng;
+  
+                // Constructing the suggestion engine
+                var dict = new Bloodhound({
+                    datumTokenizer: Bloodhound.tokenizers.whitespace,
+                    queryTokenizer: Bloodhound.tokenizers.whitespace,
+                    local: vocab
+                });
+                
+                // Initializing the typeahead
+                $('.typeahead').typeahead({
+                    hint: true,
+                    highlight: true, /* Enable substring highlighting */
+                    minLength: 1 /* Specify minimum characters required for showing suggestions */
+                },
+                {
+                  name: 'dict',
+                  source: dict
+                });
+                
+              }
+            });                
+            
+  
+            $("#generateButton").on('click', function() {
+              var precursorWord = $("#sentence").val().trim();
+              var tokenNum = $("#tokenNum").val();
+              try {
+                tokenNum = parseInt(tokenNum);
+              } catch(e) {
+                alert('Invalid Token Number.');
+                return;
+              }
+              if(!tokenNum || tokenNum <= 0) {
+                alert('Invalid Token Number.');
+                return;
+              }
+              if(precursorWord.length == 0) {
+                alert('Please input at least 1 Pre-Cursor Word');
+                return;
+              }
+
+              existing_tokens_lda = precursorWord.split(' ');
+              existing_sentence_lda = precursorWord;
+              existing_tokens_tng = precursorWord.split(' ');
+              existing_sentence_tng = precursorWord;              
+
+              var randomFromSampling = function(sampling) {
+                var sum = 0.0
+                for(var i=0;i<sampling.sort_p.length;i++) {
+                  sum += sampling.sort_p[i].prob;
+                } 
+                var u = Math.random() * sum;
+                sum = 0;
+                var result = 0;
+                for(result=0;result<sampling.sort_p.length;result++) {
+                  sum += sampling.sort_p[result].prob;
+                  if(u < sum)
+                    break;
+                }
+                return vocab[result];                 
+              };
+
+              var generateToken_LDA = function(index, maxIndex) {
+                if(index < maxIndex) {
+                  $.ajax({
+                    type: "POST",
+                    url: '/predict',
+                    data: JSON.stringify({sentence: existing_sentence_lda}),
+                    dataType: 'json',
+                    contentType: 'application/json',
+                    success: function(data) {
+                      console.log(data);
+                      var sampling = data.sampling_lda;
+                      var predicted_word = vocab[sampling.sort_p[0].word];
+                      if($('#useRandom').prop('checked'))
+                        predicted_word = randomFromSampling(sampling);
+                      existing_tokens_lda.push(predicted_word);
+                      existing_sentence_lda += ' ' + predicted_word;
+                      $("#sentence_lda").html(existing_sentence_lda);
+
+                      generateToken_LDA(index + 1, maxIndex);
+                    }                  
+                  });                
+                } else {
+                  $.ajax({
+                    type: "POST",
+                    url: '/perplexity',
+                    data: JSON.stringify({sentence: existing_sentence_lda}),
+                    dataType: 'json',
+                    contentType: 'application/json',
+                    success: function(data) {
+                      console.log(data);
+                      var perplexity = data.perplexity_lda;                      
+                      $("#perplexity_lda").html(perplexity);
+                    }                                    
+                  });
+                }
+              };
+
+              var generateToken_TNG = function(index, maxIndex) {
+                if(index < maxIndex) {
+                  $.ajax({
+                    type: "POST",
+                    url: '/predict',
+                    data: JSON.stringify({sentence: existing_sentence_tng}),
+                    dataType: 'json',
+                    contentType: 'application/json',
+                    success: function(data) {
+                      console.log(data);
+                      var sampling = data.sampling_tng;
+                      var predicted_word = vocab[sampling.sort_p[0].word];
+                      if($('#useRandom').prop('checked'))
+                        predicted_word = randomFromSampling(sampling);
+                      existing_tokens_tng.push(predicted_word);
+                      existing_sentence_tng += ' ' + predicted_word;
+                      $("#sentence_tng").html(existing_sentence_tng);
+
+                      generateToken_TNG(index + 1, maxIndex);
+                    }                  
+                  });                
+                } else {
+                  $.ajax({
+                    type: "POST",
+                    url: '/perplexity',
+                    data: JSON.stringify({sentence: existing_sentence_tng}),
+                    dataType: 'json',
+                    contentType: 'application/json',
+                    success: function(data) {
+                      console.log(data);
+                      var perplexity = data.perplexity_tng;
+                      $("#perplexity_tng").html(perplexity);
+                    }                                    
+                  });
+                }
+              };
+
+              generateToken_LDA(0, tokenNum);
+              generateToken_TNG(0, tokenNum);
+            });
+  
+        });  
+      </script>
+    </head>
+    <body>
+      <h2>Document Generation</h2>        
+      <div>
+        Pre-cursor Word:
+      </div>      
+      <div>
+        <input type="text" id="sentence" class="typeahead tt-query" autocomplete="off" spellcheck="false" >
+      </div>
+      <div style="margin-top:10px;" >
+        <span>Number of Token to be generate:</span>
+        <input type="text" id="tokenNum" >
+      </div>
+      <div style="margin-top:10px;" >
+        <input type="checkbox" id="useRandom" > Random next word based on Probability Distribution
+      </div>
+      <div style="margin-top:10px;" >
+        <input type="button" id="generateButton" value="Generate" >
+      </div>
+  
+      <div>
+        <h2>LDA Document Generation</h2>
+        <h3>Perplexity: <span id="perplexity_lda" ></span></h3>
+        <span id="sentence_lda" style="background-color:#ffffaa" ></span>
+      </div>
+
+      <div>
+        <h2>TNG Document Generation</h2>
+        <h3>Perplexity: <span id="perplexity_tng" ></span></h3>
+        <span id="sentence_tng" style="background-color:#ffffaa" ></span>
+      </div>
+      
+    </body>
+  </html>
