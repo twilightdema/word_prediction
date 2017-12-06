@@ -144,6 +144,9 @@
                       console.log(data);
                       var sampling = data.sampling_lda;
                       var predicted_word = vocab[sampling.sort_p[0].word];
+                      if(existing_tokens_lda.length > 0 && existing_tokens_lda[existing_tokens_lda.length-1] == predicted_word) {
+                        predicted_word = vocab[sampling.sort_p[1].word];
+                      }
                       if($('#useRandom').prop('checked'))
                         predicted_word = randomFromSampling(sampling);
                       existing_tokens_lda.push(predicted_word);
@@ -181,6 +184,9 @@
                       console.log(data);
                       var sampling = data.sampling_tng;
                       var predicted_word = vocab[sampling.sort_p[0].word];
+                      if(existing_tokens_tng.length > 0 && existing_tokens_tng[existing_tokens_tng.length-1] == predicted_word) {
+                        predicted_word = vocab[sampling.sort_p[1].word];
+                      }
                       if($('#useRandom').prop('checked'))
                         predicted_word = randomFromSampling(sampling);
                       existing_tokens_tng.push(predicted_word);
