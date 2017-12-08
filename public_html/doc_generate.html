@@ -129,7 +129,7 @@
                   if(u < sum)
                     break;
                 }
-                return vocab[result];                 
+                return vocab[sampling.sort_p[result].word];                 
               };
 
               var generateToken_LDA = function(index, maxIndex) {
