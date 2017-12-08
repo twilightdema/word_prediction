@@ -124,11 +124,14 @@
                 var u = Math.random() * sum;
                 sum = 0;
                 var result = 0;
+                console.log('u = '+u);
                 for(result=0;result<sampling.sort_p.length;result++) {
                   sum += sampling.sort_p[result].prob;
+                  console.log(' - '+vocab[sampling.sort_p[result].word]+':'+sampling.sort_p[result].prob);
                   if(u < sum)
                     break;
                 }
+                console.log('choose: '+vocab[sampling.sort_p[result].word]);
                 return vocab[sampling.sort_p[result].word];                 
               };
 
